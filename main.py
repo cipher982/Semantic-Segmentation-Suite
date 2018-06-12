@@ -92,11 +92,18 @@ def prepare_data(dataset_dir=args.dataset):
 
 
 def load_image(path):
-    print("path:{0}".format(path))
+    #print("path:{0}".format(path))
     image = cv2.imread(path, -1)
-    #print("shape:{0}".format(np.shape(image)))
+    #print("shape:{0}".format(len(np.shape(image))))
     #print("[0]max={0}  [2]max={1}".format(np.max(image[:,:,0]), np.max(image[:,:,2])))
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    # If image has three color channels
+    if len(np.shape(image)) == 3:
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    # If image has one color channel (Example: some labeled data)
+    elif len(np.shape(image)) == 2:
+        zeros = np.zeros(np.shape(image))
+        image = np.stack((image,zeros,zeros), axis=2) # Add two fake color channels
     return image
 
 def data_augmentation(input_image, output_image):
@@ -221,7 +228,9 @@ if init_fn is not None:
     init_fn(sess)
 
 # Load a previous checkpoint if desired
-model_checkpoint_name = "checkpoints/latest_model_" + args.model + "_" + args.dataset + ".ckpt"
+#model_checkpoint_name = "checkpoints/latest_model_" + args.model + "_" + args.dataset + ".ckpt"
+model_checkpoint_name = args.dataset + "checkpoints/latest_model_" + args.model + "_" + args.dataset + ".ckpt"
+
 if args.continue_training or not args.mode == "train":
     print('Loaded latest model checkpoint')
     saver.restore(sess, model_checkpoint_name)
@@ -235,19 +244,20 @@ train_input_names,train_output_names, val_input_names, val_output_names, test_in
 if args.mode == "train":
 
     print("\n***** Begin training *****")
-    print("Dataset -->", args.dataset)
-    print("Model -->", args.model)
-    print("Crop Height -->", args.crop_height)
-    print("Crop Width -->", args.crop_width)
-    print("Num Epochs -->", args.num_epochs)
-    print("Batch Size -->", args.batch_size)
-    print("Num Classes -->", num_classes)
+    print("Dataset         -->", args.dataset)
+    print("Training Images -->", len(train_input_names))
+    print("Model           -->", args.model)
+    print("Crop Height     -->", args.crop_height)
+    print("Crop Width      -->", args.crop_width)
+    print("Num Epochs      -->", args.num_epochs)
+    print("Batch Size      -->", args.batch_size)
+    print("Num Classes     -->", num_classes)
 
     print("Data Augmentation:")
-    print("\tVertical Flip -->", args.v_flip)
-    print("\tHorizontal Flip -->", args.h_flip)
+    print("\tVertical Flip         -->", args.v_flip)
+    print("\tHorizontal Flip       -->", args.h_flip)
     print("\tBrightness Alteration -->", args.brightness)
-    print("\tRotation -->", args.rotation)
+    print("\tRotation              -->", args.rotation)
     print("")
 
     avg_loss_per_epoch = []
@@ -308,10 +318,11 @@ if args.mode == "train":
             # memory()
             
             if args.batch_size == 1:
-                input_image_batch = input_image_batch[0]
+                input_image_batch  = input_image_batch[0]
                 output_image_batch = output_image_batch[0]
+                #print(np.shape(input_image_batch))
             else:
-                input_image_batch = np.squeeze(np.stack(input_image_batch, axis=1))
+                input_image_batch  = np.squeeze(np.stack(input_image_batch, axis=1))
                 output_image_batch = np.squeeze(np.stack(output_image_batch, axis=1))
 
             # Do the training
@@ -327,8 +338,12 @@ if args.mode == "train":
         avg_loss_per_epoch.append(mean_loss)
         
         # Create directories if needed
-        if not os.path.isdir("%s/%04d"%("checkpoints",epoch)):
-            os.makedirs("%s/%04d"%("checkpoints",epoch))
+        #if not os.path.isdir("%s/%04d"%("checkpoints",epoch)):
+        #    os.makedirs("%s/%04d"%("checkpoints",epoch))
+
+        # Create directories if needed
+        if not os.path.isdir("%s/%s/%04d"%(args.dataset,"checkpoints",epoch)):
+            os.makedir("%s/%s/%04d"%(args.dataset,"checkpoints",epoch))
 
         # Save latest checkpoint to same file name
         print("Saving latest checkpoint")
@@ -336,21 +351,23 @@ if args.mode == "train":
 
         if val_indices != 0 and epoch % args.checkpoint_step == 0:
             print("Saving checkpoint for this epoch")
-            saver.save(sess,"%s/%04d/model.ckpt"%("checkpoints",epoch))
+            #saver.save(sess,"%s/%04d/model.ckpt"%("checkpoints",epoch))
+            saver.save(sess,"%s/%s/%04d/model.ckpt"%(args.dataset,"checkpoints",epoch))
 
 
         if epoch % args.validation_step == 0:
             print("Performing validation")
-            target=open("%s/%04d/val_scores.csv"%("checkpoints",epoch),'w')
+            #target=open("%s/%04d/val_scores.csv"%("checkpoints",epoch),'w')
+            target=open("%s/%s/%04d/val_scores.csv"%(args.dataset,"checkpoints",epoch),'w')
             target.write("val_name, avg_accuracy, precision, recall, f1 score, mean iou, %s\n" % (class_names_string))
 
 
-            scores_list = []
+            scores_list       = []
             class_scores_list = []
-            precision_list = []
-            recall_list = []
-            f1_list = []
-            iou_list = []
+            precision_list    = []
+            recall_list       = []
+            f1_list           = []
+            iou_list          = []
 
 
             # Do the validation on a small set of validation images
@@ -365,8 +382,8 @@ if args.mode == "train":
                 output_image = sess.run(network,feed_dict={net_input:input_image})
                 
 
-                output_image = np.array(output_image[0,:,:,:])
-                output_image = helpers.reverse_one_hot(output_image)
+                output_image  = np.array(output_image[0,:,:,:])
+                output_image  = helpers.reverse_one_hot(output_image)
                 out_vis_image = helpers.colour_code_segmentation(output_image, label_values)
 
                 accuracy, class_accuracies, prec, rec, f1, iou = utils.evaluate_segmentation(pred=output_image, label=gt, num_classes=num_classes)
@@ -388,8 +405,12 @@ if args.mode == "train":
      
                 file_name = os.path.basename(val_input_names[ind])
                 file_name = os.path.splitext(file_name)[0]
-                cv2.imwrite("%s/%04d/%s_pred.png"%("checkpoints",epoch, file_name),cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR))
-                cv2.imwrite("%s/%04d/%s_gt.png"%("checkpoints",epoch, file_name),cv2.cvtColor(np.uint8(gt), cv2.COLOR_RGB2BGR))
+                #cv2.imwrite("%s/%04d/%s_pred.png"%("checkpoints",epoch, file_name),cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR))
+                #cv2.imwrite("%s/%04d/%s_gt.png"%("checkpoints",epoch, file_name),cv2.cvtColor(np.uint8(gt), cv2.COLOR_RGB2BGR))
+
+                cv2.imwrite("%s/%s/%04d/%s_pred.png"%(args.dataset,"checkpoints",epoch, file_name),cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR))
+                cv2.imwrite("%s/%s/%04d/%s_gt.png"%(args.dataset,"checkpoints",epoch, file_name),cv2.cvtColor(np.uint8(gt), cv2.COLOR_RGB2BGR))
+                
 
 
             target.close()

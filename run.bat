@@ -1,1 +1,1 @@
-python main.py --dataset="D:\data\berkley\bdd100k\seg"
+python main.py --dataset="D:\data\berkley\bdd100k\seg" --model="MobileUNet" --batch_size=3
