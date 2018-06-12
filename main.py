@@ -343,7 +343,7 @@ if args.mode == "train":
 
         # Create directories if needed
         if not os.path.isdir("%s/%s/%04d"%(args.dataset,"checkpoints",epoch)):
-            os.makedir("%s/%s/%04d"%(args.dataset,"checkpoints",epoch))
+            os.makedirs("%s/%s/%04d"%(args.dataset,"checkpoints",epoch))
 
         # Save latest checkpoint to same file name
         print("Saving latest checkpoint")
