@@ -104,6 +104,7 @@ def load_image(path):
     elif len(np.shape(image)) == 2:
         zeros = np.zeros(np.shape(image))
         image = np.stack((image,zeros,zeros), axis=2) # Add two fake color channels
+
     return image
 
 def data_augmentation(input_image, output_image):
@@ -134,7 +135,7 @@ def download_checkpoints(model_name):
 
 
 # Get the names of the classes so we can record the evaluation results
-class_names_list, label_values = helpers.get_label_info(os.path.join(args.dataset, "class_dict.csv"))
+class_names_list, label_values, label_values_output = helpers.get_label_info(os.path.join(args.dataset, "class_dict.csv"))
 class_names_string = ""
 for class_name in class_names_list:
     if not class_name == class_names_list[-1]:
@@ -229,7 +230,7 @@ if init_fn is not None:
 
 # Load a previous checkpoint if desired
 #model_checkpoint_name = "checkpoints/latest_model_" + args.model + "_" + args.dataset + ".ckpt"
-model_checkpoint_name = args.dataset + "checkpoints/latest_model_" + args.model + "_" + args.dataset + ".ckpt"
+model_checkpoint_name = args.dataset + "/checkpoints/latest_model_" + args.model + "_" + ".ckpt"
 
 if args.continue_training or not args.mode == "train":
     print('Loaded latest model checkpoint')
@@ -330,7 +331,10 @@ if args.mode == "train":
             current_losses.append(current)
             cnt = cnt + args.batch_size
             if cnt % 20 == 0:
-                string_print = "Epoch = %d Count = %d Current_Loss = %.4f Time = %.2f"%(epoch,cnt,current,time.time()-st)
+                percent_fin  = cnt / len(train_input_names) * 100
+                time_left    = (len(train_input_names) - cnt) / (60 / (time.time()-st)) / 60
+                string_print = "Epoch = %d Count = %d/%d(%d%%) Current_Loss = %.4f Time = %.2f, Remaining ~%.2f mins"%(\
+                    epoch,cnt,len(train_input_names),percent_fin,current,time.time()-st, time_left)
                 utils.LOG(string_print)
                 st = time.time()
 
@@ -343,6 +347,7 @@ if args.mode == "train":
 
         # Create directories if needed
         if not os.path.isdir("%s/%s/%04d"%(args.dataset,"checkpoints",epoch)):
+            print("Making dir for epoch {0}. . .".format(epoch))
             os.makedirs("%s/%s/%04d"%(args.dataset,"checkpoints",epoch))
 
         # Save latest checkpoint to same file name
@@ -384,7 +389,7 @@ if args.mode == "train":
 
                 output_image  = np.array(output_image[0,:,:,:])
                 output_image  = helpers.reverse_one_hot(output_image)
-                out_vis_image = helpers.colour_code_segmentation(output_image, label_values)
+                out_vis_image = helpers.colour_code_segmentation(output_image, label_values_output)
 
                 accuracy, class_accuracies, prec, rec, f1, iou = utils.evaluate_segmentation(pred=output_image, label=gt, num_classes=num_classes)
             
@@ -408,9 +413,13 @@ if args.mode == "train":
                 #cv2.imwrite("%s/%04d/%s_pred.png"%("checkpoints",epoch, file_name),cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR))
                 #cv2.imwrite("%s/%04d/%s_gt.png"%("checkpoints",epoch, file_name),cv2.cvtColor(np.uint8(gt), cv2.COLOR_RGB2BGR))
 
+                print("\noutput_image {0}".format(np.shape(output_image)))
+                print(output_image)
+                print("\nout_vis_image {0}".format(np.shape(out_vis_image)))
+                print(out_vis_image)
                 cv2.imwrite("%s/%s/%04d/%s_pred.png"%(args.dataset,"checkpoints",epoch, file_name),cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR))
-                cv2.imwrite("%s/%s/%04d/%s_gt.png"%(args.dataset,"checkpoints",epoch, file_name),cv2.cvtColor(np.uint8(gt), cv2.COLOR_RGB2BGR))
-                
+                #cv2.imwrite("%s/%s/%04d/%s_gt.png"%(args.dataset,"checkpoints",epoch, file_name),cv2.cvtColor(np.uint8(gt), cv2.COLOR_RGB2BGR))
+                cv2.imwrite("%s/%s/%04d/%s_gt.png"%(args.dataset,"checkpoints",epoch, file_name),np.uint8(gt))
 
 
             target.close()
@@ -531,13 +540,14 @@ elif args.mode == "test":
 
     target.close()
 
-    avg_score = np.mean(scores_list)
+    avg_score        = np.mean(scores_list)
     class_avg_scores = np.mean(class_scores_list, axis=0)
-    avg_precision = np.mean(precision_list)
-    avg_recall = np.mean(recall_list)
-    avg_f1 = np.mean(f1_list)
-    avg_iou = np.mean(iou_list)
-    avg_time = np.mean(run_times_list)
+    avg_precision    = np.mean(precision_list)
+    avg_recall       = np.mean(recall_list)
+    avg_f1           = np.mean(f1_list)
+    avg_iou          = np.mean(iou_list)
+    avg_time         = np.mean(run_times_list)
+
     print("Average test accuracy = ", avg_score)
     print("Average per class test accuracies = \n")
     for index, item in enumerate(class_avg_scores):
@@ -571,6 +581,7 @@ elif args.mode == "predict":
     height, width, channels = loaded_image.shape
     resize_height = int(height / (width / args.crop_width))
 
+
     resized_image =cv2.resize(loaded_image, (args.crop_width, resize_height))
     input_image = np.expand_dims(np.float32(resized_image[:args.crop_height, :args.crop_width]),axis=0)/255.0
 
@@ -583,7 +594,7 @@ elif args.mode == "predict":
     output_image = helpers.reverse_one_hot(output_image)
 
     # this needs to get generalized
-    class_names_list, label_values = helpers.get_label_info(os.path.join("CamVid", "class_dict.csv"))
+    class_names_list, label_values, label_values_output = helpers.get_label_info(os.path.join("CamVid", "class_dict.csv"))
 
     out_vis_image = helpers.colour_code_segmentation(output_image, label_values)
     file_name = utils.filepath_to_name(args.image)

@@ -1,1 +1,1 @@
-python main.py --dataset="D:\data\berkley\bdd100k\seg" --model="MobileUNet" --batch_size=10 --crop_height=256 --crop_width=256
+python main.py --dataset="D:\data\berkley\bdd100k\seg" --model="MobileUNet" --batch_size=3 --crop_height=512 --crop_width=512
