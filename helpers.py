@@ -65,14 +65,21 @@ def one_hot_it(label, label_values):
     # st = time.time()
     # https://stackoverflow.com/questions/46903885/map-rgb-semantic-maps-to-one-hot-encodings-and-vice-versa-in-tensorflow
     # https://stackoverflow.com/questions/14859458/how-to-check-if-all-values-in-the-columns-of-a-numpy-matrix-are-the-same
+    #print("==============================================BEGIN=====================================================")
     semantic_map = []
     for colour in label_values:
+        colour = [colour,0,0]
+        #print("colour:{0}".format(colour))
         # colour_map = np.full((label.shape[0], label.shape[1], label.shape[2]), colour, dtype=int)
         equality = np.equal(label, colour)
+        #print("equality:{0}".format(np.mean(equality), np.shape(equality)))
         class_map = np.all(equality, axis = -1)
+        #print("class_map mean:{0}".format(np.mean(class_map)))
         semantic_map.append(class_map)
     semantic_map = np.stack(semantic_map, axis=-1)
     # print("Time 2 = ", time.time() - st)
+
+    #print("=============================================END========================================================")
 
     return semantic_map
     

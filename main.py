@@ -112,20 +112,20 @@ def data_augmentation(input_image, output_image):
     input_image, output_image = utils.random_crop(input_image, output_image, args.crop_height, args.crop_width)
 
     if args.h_flip and random.randint(0,1):
-        input_image = cv2.flip(input_image, 1)
+        input_image  = cv2.flip(input_image, 1)
         output_image = cv2.flip(output_image, 1)
     if args.v_flip and random.randint(0,1):
-        input_image = cv2.flip(input_image, 0)
+        input_image  = cv2.flip(input_image, 0)
         output_image = cv2.flip(output_image, 0)
     if args.brightness:
         factor = random.uniform(-1*args.brightness, args.brightness)
-        table = np.array([((i / 255.0) ** factor) * 255 for i in np.arange(0, 256)]).astype(np.uint8)
+        table  = np.array([((i / 255.0) ** factor) * 255 for i in np.arange(0, 256)]).astype(np.uint8)
         input_image = cv2.LUT(input_image, table)
     if args.rotation:
         angle = random.uniform(-1*args.rotation, args.rotation)
     if args.rotation:
         M = cv2.getRotationMatrix2D((input_image.shape[1]//2, input_image.shape[0]//2), angle, 1.0)
-        input_image = cv2.warpAffine(input_image, M, (input_image.shape[1], input_image.shape[0]), flags=cv2.INTER_NEAREST)
+        input_image  = cv2.warpAffine(input_image, M, (input_image.shape[1], input_image.shape[0]), flags=cv2.INTER_NEAREST)
         output_image = cv2.warpAffine(output_image, M, (output_image.shape[1], output_image.shape[0]), flags=cv2.INTER_NEAREST)
 
     return input_image, output_image
@@ -296,16 +296,20 @@ if args.mode == "train":
                 index = i*args.batch_size + j
                 id = id_list[index]
                 input_image = load_image(train_input_names[id])
+                #print("298 ",np.shape(input_image))
                 output_image = load_image(train_output_names[id])
+                #print("300 ", np.shape(output_image))
 
                 with tf.device('/cpu:0'):
                     input_image, output_image = data_augmentation(input_image, output_image)
-
+                    #print("304 ", np.shape(input_image))
+                    #print("304 ", np.shape(output_image))
 
                     # Prep the data. Make sure the labels are in one-hot format
                     input_image = np.float32(input_image) / 255.0
                     output_image = np.float32(helpers.one_hot_it(label=output_image, label_values=label_values))
-                    
+                    #np.save("onehot.npy",output_image)
+                    #print("310 ", np.shape(output_image))                    
                     input_image_batch.append(np.expand_dims(input_image, axis=0))
                     output_image_batch.append(np.expand_dims(output_image, axis=0))
 
@@ -413,10 +417,10 @@ if args.mode == "train":
                 #cv2.imwrite("%s/%04d/%s_pred.png"%("checkpoints",epoch, file_name),cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR))
                 #cv2.imwrite("%s/%04d/%s_gt.png"%("checkpoints",epoch, file_name),cv2.cvtColor(np.uint8(gt), cv2.COLOR_RGB2BGR))
 
-                print("\noutput_image {0}".format(np.shape(output_image)))
-                print(output_image)
-                print("\nout_vis_image {0}".format(np.shape(out_vis_image)))
-                print(out_vis_image)
+                #print("\noutput_image {0}".format(np.shape(output_image)))
+                #print(output_image)
+                #print("\nout_vis_image {0}".format(np.shape(out_vis_image)))
+                #print(out_vis_image)
                 cv2.imwrite("%s/%s/%04d/%s_pred.png"%(args.dataset,"checkpoints",epoch, file_name),cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR))
                 #cv2.imwrite("%s/%s/%04d/%s_gt.png"%(args.dataset,"checkpoints",epoch, file_name),cv2.cvtColor(np.uint8(gt), cv2.COLOR_RGB2BGR))
                 cv2.imwrite("%s/%s/%04d/%s_gt.png"%(args.dataset,"checkpoints",epoch, file_name),np.uint8(gt))
